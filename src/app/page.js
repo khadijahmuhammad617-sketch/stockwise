@@ -1,69 +1,199 @@
-import Image from "next/image";
 
-export default function Home() {
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
+export default function Dashboard() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "products"),
+      (snapshot) => {
+        setProducts(
+          snapshot.docs.map((item) => ({
+            id: item.id,
+            ...item.data(),
+          }))
+        );
+        setLoading(false);
+        setError("");
+      },
+      (err) => {
+        setError("Could not load inventory: " + err.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const totalUnits = products.reduce(
+    (total, product) => total + (Number(product.quantity) || 0),
+    0
+  );
+
+  const lowStockProducts = products.filter(
+    (product) =>
+      Number(product.quantity) <= Number(product.reorderLevel)
+  );
+
+  const inventoryValue = products.reduce(
+    (total, product) =>
+      total +
+      (Number(product.quantity) || 0) *
+        (Number(product.sellingPrice) || 0),
+    0
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-[#f7f4ec] p-6 text-[#34483b] md:p-10">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">StockWise Dashboard</h1>
+          <p className="mt-2 text-[#6b776b]">
+            Building materials inventory overview
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <a
+          href="/products"
+          className="rounded-lg bg-[#526b53] px-5 py-3 font-semibold text-white"
+        >
+          Manage Products
+        </a>
+      </header>
+
+      {error && (
+        <p className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <p>Loading your inventory...</p>
+      ) : (
+        <>
+          <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-[#e6e3d8] bg-white p-6">
+              <p className="text-sm text-[#6b776b]">Total Products</p>
+              <p className="mt-3 text-3xl font-bold">{products.length}</p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e6e3d8] bg-white p-6">
+              <p className="text-sm text-[#6b776b]">Total Units in Stock</p>
+              <p className="mt-3 text-3xl font-bold">
+                {totalUnits.toLocaleString("en-NG")}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e6e3d8] bg-white p-6">
+              <p className="text-sm text-[#6b776b]">Low-Stock Products</p>
+              <p className="mt-3 text-3xl font-bold text-amber-700">
+                {lowStockProducts.length}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-[#e6e3d8] bg-white p-6">
+              <p className="text-sm text-[#6b776b]">
+                Potential Stock Value
+              </p>
+              <p className="mt-3 text-2xl font-bold">
+                ₦{inventoryValue.toLocaleString("en-NG")}
+              </p>
+              <p className="mt-1 text-xs text-[#6b776b]">
+                Based on selling prices, not profit
+              </p>
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-2xl border border-[#e6e3d8] bg-white p-6">
+            <h2 className="mb-5 text-xl font-bold">Current Inventory</h2>
+
+            {products.length === 0 ? (
+              <p>No products yet. Add products to see your inventory here.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="p-3">Product</th>
+                      <th className="p-3">SKU</th>
+                      <th className="p-3">Selling Price</th>
+                      <th className="p-3">Quantity</th>
+                      <th className="p-3">Stock Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((product) => {
+                      const low =
+                        Number(product.quantity) <=
+                        Number(product.reorderLevel);
+
+                      return (
+                        <tr key={product.id} className="border-b">
+                          <td className="p-3 font-medium">
+                            {product.name}
+                          </td>
+                          <td className="p-3">{product.sku}</td>
+                          <td className="p-3">
+                            ₦{Number(product.sellingPrice || 0).toLocaleString("en-NG")}
+                          </td>
+                          <td className="p-3">
+                            {product.quantity} {product.unit}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                low
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {low ? "Low Stock" : "In Stock"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="mt-8 rounded-2xl border border-[#e6e3d8] bg-white p-6">
+            <h2 className="mb-4 text-xl font-bold">Restock Alerts</h2>
+
+            {lowStockProducts.length === 0 ? (
+              <p>All products are above their restock levels.</p>
+            ) : (
+              <ul className="space-y-3">
+                {lowStockProducts.map((product) => (
+                  <li
+                    key={product.id}
+                    className="flex flex-wrap justify-between gap-2 rounded-lg bg-amber-50 p-4"
+                  >
+                    <span className="font-medium">{product.name}</span>
+                    <span>
+                      {product.quantity} {product.unit} remaining
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
+
+      <footer className="mt-8 text-sm text-[#6b776b]">
+        StockWise Inventory Management System
+      </footer>
+    </main>
   );
 }
