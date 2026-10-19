@@ -30,7 +30,8 @@ export default function LoginPage() {
 
       router.push("/products");
     } catch (error) {
-      setMessage("Login failed: check your details and Firestore permissions.");
+      console.error("StockWise login error:", error);
+      setMessage("Error: " + error.code + " - " + error.message);
     } finally {
       setLoading(false);
     }
