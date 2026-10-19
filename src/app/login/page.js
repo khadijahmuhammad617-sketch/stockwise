@@ -28,7 +28,20 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/products");
+      
+const role = userDoc.data().role;
+
+if (role === "admin") {
+  router.push("/");
+} else if (role === "storekeeper") {
+  router.push("/store/movements");
+} else if (role === "salesRep") {
+  router.push("/sales/new");
+} else {
+  await signOut(auth);
+  setMessage("Your account has an invalid role.");
+}
+
     } catch (error) {
       console.error("StockWise login error:", error);
       setMessage("Error: " + error.code + " - " + error.message);

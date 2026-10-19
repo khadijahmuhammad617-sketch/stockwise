@@ -1,6 +1,10 @@
 
+
+
 import "./globals.css";
 import StoreProvider from "../components/StoreProvider";
+import ThemeProvider from "../components/ThemeProvider";
+import Navigation from "../components/Navigation";
 
 export const metadata = {
   title: "StockWise",
@@ -9,9 +13,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <StoreProvider>{children}</StoreProvider>
+        <ThemeProvider>
+          <StoreProvider>
+            <Navigation />
+            {children}
+          </StoreProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -32,7 +33,9 @@ export default function AdminSalesReport() {
       },
       (err) => {
         console.error(err);
-        setError("Could not load sales. Check your login and Firestore rules.");
+        setError(
+          "Could not load sales. Check your login and Firestore rules."
+        );
       }
     );
 
@@ -52,55 +55,59 @@ export default function AdminSalesReport() {
 
   const todaySales = completedSales.filter((sale) => {
     if (!sale.createdAt?.toDate) return false;
+
     return sale.createdAt.toDate().toDateString() === today;
   });
 
   return (
-    <main className="min-h-screen bg-[#fffaf0] p-6 text-gray-800">
+    <main className="min-h-screen bg-background p-6 text-foreground">
       <div className="mx-auto max-w-6xl">
-        <a href="/" className="text-orange-700 underline">
-          Back to Dashboard
+        <a href="/admin" className="text-orange-700 underline">
+          Back to Admin Dashboard
         </a>
 
-        <h1 className="mt-5 text-3xl font-bold">Admin Sales Report</h1>
-        <p className="mt-2 text-gray-600">
+        <h1 className="mt-5 text-3xl font-bold">
+          Admin Sales Report
+        </h1>
+
+        <p className="mt-2 opacity-70">
           Review recorded sales and revenue from StockWise.
         </p>
 
         {error && (
-          <p className="mt-4 rounded bg-red-100 p-3 text-red-700">
+          <p className="mt-4 rounded-lg bg-red-100 p-3 text-red-700">
             {error}
           </p>
         )}
 
         <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Total Revenue</p>
+          <div className="rounded-xl border border-(--border) bg-(--card) p-5">
+            <p className="text-sm opacity-70">Total Revenue</p>
             <h2 className="mt-2 text-2xl font-bold">
               ₦{totalRevenue.toLocaleString("en-NG")}
             </h2>
           </div>
 
-          <div className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Completed Sales</p>
+          <div className="rounded-xl border border-(--border) bg-(--card) p-5">
+            <p className="text-sm opacity-70">Completed Sales</p>
             <h2 className="mt-2 text-2xl font-bold">
               {completedSales.length}
             </h2>
           </div>
 
-          <div className="rounded-xl border bg-white p-5 shadow-sm">
-            <p className="text-sm text-gray-500">Sales Today</p>
+          <div className="rounded-xl border border-(--border) bg-(--card) p-5">
+            <p className="text-sm opacity-70">Sales Today</p>
             <h2 className="mt-2 text-2xl font-bold">
               {todaySales.length}
             </h2>
           </div>
         </section>
 
-        <section className="mt-8 overflow-x-auto rounded-xl border bg-white">
+        <section className="mt-8 overflow-x-auto rounded-xl border border-(--border) bg-(--card)">
           <h2 className="p-5 text-xl font-bold">Sales History</h2>
 
           <table className="w-full text-left text-sm">
-            <thead className="bg-orange-100">
+            <thead className="bg-(--sage)">
               <tr>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Sales Rep</th>
@@ -113,14 +120,30 @@ export default function AdminSalesReport() {
 
             <tbody>
               {sales.map((sale) => (
-                <tr key={sale.id} className="border-t">
-                  <td className="p-3">{sale.customerName || "Walk-in"}</td>
-                  <td className="p-3">{sale.repName || "Unknown"}</td>
+                <tr
+                  key={sale.id}
+                  className="border-t border-(--border)"
+                >
+                  <td className="p-3">
+                    {sale.customerName || "Walk-in"}
+                  </td>
+
+                  <td className="p-3">
+                    {sale.repName || "Unknown"}
+                  </td>
+
                   <td className="p-3">
                     ₦{(Number(sale.total) || 0).toLocaleString("en-NG")}
                   </td>
-                  <td className="p-3">{sale.paymentMethod || "—"}</td>
-                  <td className="p-3">{sale.status || "Unknown"}</td>
+
+                  <td className="p-3">
+                    {sale.paymentMethod || "—"}
+                  </td>
+
+                  <td className="p-3">
+                    {sale.status || "Unknown"}
+                  </td>
+
                   <td className="p-3">
                     {sale.createdAt?.toDate
                       ? sale.createdAt.toDate().toLocaleString("en-NG")
@@ -131,7 +154,10 @@ export default function AdminSalesReport() {
 
               {sales.length === 0 && !error && (
                 <tr>
-                  <td colSpan={6} className="p-5 text-center text-gray-500">
+                  <td
+                    colSpan={6}
+                    className="p-5 text-center opacity-70"
+                  >
                     No sales have been recorded yet.
                   </td>
                 </tr>
