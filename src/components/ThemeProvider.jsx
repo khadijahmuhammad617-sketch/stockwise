@@ -26,7 +26,11 @@ export default function ThemeProvider({ children }) {
   useEffect(() => {
     if (!mounted) return;
 
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.classList.toggle(
+      "dark",
+      theme === "dark"
+    );
+
     localStorage.setItem("stockwise-theme", theme);
   }, [theme, mounted]);
 
@@ -37,7 +41,7 @@ export default function ThemeProvider({ children }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, mounted }}>
       {children}
     </ThemeContext.Provider>
   );

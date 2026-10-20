@@ -1,6 +1,4 @@
 
-
-
 import "./globals.css";
 import StoreProvider from "../components/StoreProvider";
 import ThemeProvider from "../components/ThemeProvider";
