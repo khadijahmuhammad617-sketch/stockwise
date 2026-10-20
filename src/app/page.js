@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -157,12 +158,28 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <a
-            href="/products"
-            className="rounded-lg bg-[#526b53] px-5 py-3 font-semibold text-white transition hover:opacity-90"
-          >
-            Manage Products
-          </a>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="/products"
+              className="rounded-lg bg-[#526b53] px-5 py-3 font-semibold text-white transition hover:opacity-90"
+            >
+              Manage Products
+            </a>
+
+            <a
+              href="/store/receive"
+              className="rounded-lg bg-orange-700 px-5 py-3 font-semibold text-white transition hover:opacity-90"
+            >
+              Receive Stock
+            </a>
+
+            <a
+              href="/sales/new"
+              className="rounded-lg bg-[#34483b] px-5 py-3 font-semibold text-white transition hover:opacity-90"
+            >
+              Add Sale
+            </a>
+          </div>
         </header>
 
         {error && (
