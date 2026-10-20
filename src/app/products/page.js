@@ -46,6 +46,7 @@ export default function ProductsPage() {
       setProducts([]);
       setBusinessId("");
       setRole("");
+      setMessage("");
 
       if (!user) {
         setLoading(false);
@@ -67,6 +68,12 @@ export default function ProductsPage() {
         }
 
         const userData = userSnapshot.data();
+
+        console.log("StockWise profile:", {
+          businessId: userData.businessId,
+          role: userData.role,
+          active: userData.active,
+        });
 
         if (userData.active !== true || !userData.businessId) {
           setMessage("Your account is inactive or has no business assigned.");
@@ -106,16 +113,26 @@ export default function ProductsPage() {
           (error) => {
             if (cancelled) return;
 
-            console.error("Could not load inventory:", error);
-            setMessage("Could not load inventory: " + error.message);
+            console.error(
+              "StockWise inventory error:",
+              error.code,
+              error.message
+            );
+
+            setMessage(
+              "Inventory error (" +
+                error.code +
+                "): " +
+                error.message
+            );
             setLoading(false);
           }
         );
       } catch (error) {
         if (cancelled) return;
 
-        console.error("Could not load products page:", error);
-        setMessage("Could not load products: " + error.message);
+        console.error("StockWise profile error:", error.code, error.message);
+        setMessage("Could not load profile: " + error.message);
         setLoading(false);
       }
     });
@@ -188,7 +205,7 @@ export default function ProductsPage() {
       setReorderLevel("10");
       setMessage("Product saved successfully.");
     } catch (error) {
-      console.error("Could not save product:", error);
+      console.error("StockWise save error:", error.code, error.message);
       setMessage("Could not save product: " + error.message);
     } finally {
       setSaving(false);
@@ -205,7 +222,10 @@ export default function ProductsPage() {
         </p>
 
         {message && (
-          <p className="mb-5 break-words rounded-lg border p-3 text-sm" role="status">
+          <p
+            className="mb-5 break-words rounded-lg border p-3 text-sm"
+            role="status"
+          >
             {message}
           </p>
         )}
@@ -325,7 +345,10 @@ export default function ProductsPage() {
                         <td className="p-3">{product.name}</td>
                         <td className="p-3">{product.sku}</td>
                         <td className="p-3">
-                          ₦{Number(product.sellingPrice || 0).toLocaleString("en-NG")}
+                          ₦
+                          {Number(product.sellingPrice || 0).toLocaleString(
+                            "en-NG"
+                          )}
                         </td>
                         <td className="p-3">
                           {product.quantity} {product.unit}
