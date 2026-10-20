@@ -1,11 +1,14 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
-  onSnapshot,
   doc,
+  getDoc,
+  onSnapshot,
+  query,
+  where,
   runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
@@ -19,26 +22,110 @@ export default function NewSalePage() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [businessId, setBusinessId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "products"),
-      (snapshot) => {
-        setProducts(snapshot.docs.map((item) => ({
-          id: item.id,
-          ...item.data(),
-        })));
-      },
-      (error) => setMessage(error.message)
-    );
+    let unsubscribeProducts = null;
+    let cancelled = false;
 
-    return () => unsubscribe();
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeProducts) {
+        unsubscribeProducts();
+        unsubscribeProducts = null;
+      }
+
+      setProducts([]);
+      setProductId("");
+      setBusinessId("");
+
+      if (!user) {
+        setLoading(false);
+        setMessage("Please sign in first.");
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const userSnapshot = await getDoc(
+          doc(db, "users", user.uid)
+        );
+
+        if (cancelled) return;
+
+        if (!userSnapshot.exists()) {
+          setMessage("Your user profile could not be found.");
+          setLoading(false);
+          return;
+        }
+
+        const userData = userSnapshot.data();
+
+        if (userData.active !== true || !userData.businessId) {
+          setMessage("Your account is inactive or has no business assigned.");
+          setLoading(false);
+          return;
+        }
+
+        if (!["admin", "salesRep"].includes(userData.role)) {
+          setMessage("Your account does not have permission to record sales.");
+          setLoading(false);
+          return;
+        }
+
+        setBusinessId(userData.businessId);
+
+        const productsQuery = query(
+          collection(db, "products"),
+          where("businessId", "==", userData.businessId)
+        );
+
+        unsubscribeProducts = onSnapshot(
+          productsQuery,
+          (snapshot) => {
+            if (cancelled) return;
+
+            setProducts(
+              snapshot.docs.map((item) => ({
+                id: item.id,
+                ...item.data(),
+              }))
+            );
+            setLoading(false);
+            setMessage("");
+          },
+          (error) => {
+            if (cancelled) return;
+            console.error("Could not load sale products:", error);
+            setMessage("Could not load products: " + error.message);
+            setLoading(false);
+          }
+        );
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Could not prepare sale page:", error);
+        setMessage("Could not load sale page: " + error.message);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribeAuth();
+
+      if (unsubscribeProducts) {
+        unsubscribeProducts();
+      }
+    };
   }, []);
 
   const selectedProduct = products.find(
     (product) => product.id === productId
   );
+
   const amount = Number(quantity);
+
   const total = selectedProduct
     ? Number(selectedProduct.sellingPrice) * amount
     : 0;
@@ -47,18 +134,28 @@ export default function NewSalePage() {
     event.preventDefault();
     setMessage("");
 
-    if (!auth.currentUser) {
-      setMessage("Please sign in first.");
+    const user = auth.currentUser;
+
+    if (!user) {
+      setMessage("Please sign in again.");
+      return;
+    }
+
+    if (!businessId) {
+      setMessage("Your business is still loading. Try again.");
       return;
     }
 
     if (
       !selectedProduct ||
+      selectedProduct.businessId !== businessId ||
       !Number.isInteger(amount) ||
       amount <= 0 ||
       !customerName.trim()
     ) {
-      setMessage("Choose a product, enter a valid quantity, and enter the customer name.");
+      setMessage(
+        "Choose a product, enter a valid quantity, and enter the customer name."
+      );
       return;
     }
 
@@ -77,29 +174,43 @@ export default function NewSalePage() {
         }
 
         const product = productSnap.data();
+
+        if (product.businessId !== businessId) {
+          throw new Error("This product does not belong to your business.");
+        }
+
         const currentQuantity = Number(product.quantity) || 0;
 
         if (currentQuantity < amount) {
           throw new Error("Not enough stock available.");
         }
 
-        const saleTotal = Number(product.sellingPrice) * amount;
+        const salePrice = Number(product.sellingPrice);
+
+        if (!Number.isFinite(salePrice) || salePrice <= 0) {
+          throw new Error("This product has an invalid selling price.");
+        }
+
+        const saleTotal = salePrice * amount;
 
         transaction.update(productRef, {
           quantity: currentQuantity - amount,
         });
 
         transaction.set(saleRef, {
-          repId: auth.currentUser.uid,
-          repName: auth.currentUser.email || "Sales staff",
+          businessId,
+          repId: user.uid,
+          repName: user.email || "Sales staff",
           customerName: customerName.trim(),
           customerPhone: "",
-          items: [{
-            productId,
-            name: product.name,
-            qty: amount,
-            unitPrice: Number(product.sellingPrice),
-          }],
+          items: [
+            {
+              productId,
+              name: product.name,
+              qty: amount,
+              unitPrice: salePrice,
+            },
+          ],
           total: saleTotal,
           paymentMethod,
           status: "completed",
@@ -108,22 +219,25 @@ export default function NewSalePage() {
         });
 
         transaction.set(movementRef, {
+          businessId,
           productId,
           productName: product.name,
           type: "sale",
           quantity: amount,
           reason: "Customer sale",
           reference: saleRef.id,
-          byId: auth.currentUser.uid,
-          byName: auth.currentUser.email || "Sales staff",
+          byId: user.uid,
+          byName: user.email || "Sales staff",
           createdAt: serverTimestamp(),
         });
       });
 
       setQuantity("1");
       setCustomerName("");
+      setProductId("");
       setMessage("Sale recorded successfully. Stock has been reduced.");
     } catch (error) {
+      console.error("Could not record sale:", error);
       setMessage("Could not record sale: " + error.message);
     } finally {
       setSaving(false);
@@ -158,8 +272,11 @@ export default function NewSalePage() {
             value={productId}
             onChange={(event) => setProductId(event.target.value)}
             required
+            disabled={loading}
           >
-            <option value="">Choose a product</option>
+            <option value="">
+              {loading ? "Loading products..." : "Choose a product"}
+            </option>
             {products.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.name} — {product.quantity} available
@@ -202,13 +319,18 @@ export default function NewSalePage() {
         </div>
 
         <button
-          disabled={saving}
+          type="submit"
+          disabled={saving || loading || !businessId || products.length === 0}
           className="w-full rounded-lg bg-[#526b53] p-3 font-semibold text-white disabled:opacity-50"
         >
           {saving ? "Recording..." : "Complete Sale"}
         </button>
 
-        {message && <p className="text-sm">{message}</p>}
+        {message && (
+          <p className="break-words text-sm" role="status">
+            {message}
+          </p>
+        )}
       </form>
     </main>
   );

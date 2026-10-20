@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -29,7 +28,10 @@ export default function Navigation() {
       try {
         const userSnapshot = await getDoc(doc(db, "users", user.uid));
 
-        if (userSnapshot.exists() && userSnapshot.data().active === true) {
+        if (
+          userSnapshot.exists() &&
+          userSnapshot.data().active === true
+        ) {
           setRole(userSnapshot.data().role || "");
           setUserName(userSnapshot.data().name || user.email || "");
         } else {
@@ -39,6 +41,7 @@ export default function Navigation() {
       } catch (error) {
         console.error("Could not load user role:", error);
         setRole("");
+        setUserName("");
       }
 
       setReady(true);
@@ -67,6 +70,7 @@ export default function Navigation() {
     links = [
       { label: "Dashboard", href: "/" },
       { label: "Products", href: "/products" },
+      { label: "Record Sale", href: "/sales/new" },
       { label: "Sales Reports", href: "/admin/sales" },
       { label: "Receive Stock", href: "/store/receive" },
       { label: "Stock Movements", href: "/store/movements" },
@@ -96,6 +100,7 @@ export default function Navigation() {
         </Link>
 
         <button
+          type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           className="rounded-lg border border-[var(--border)] px-3 py-2 md:hidden"
         >
@@ -119,17 +124,17 @@ export default function Navigation() {
           ))}
 
           <button
+            type="button"
             onClick={toggleTheme}
             className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium hover:opacity-80"
           >
             {theme === "light" ? "Dark Mode" : "Light Mode"}
           </button>
 
-          <div className="text-sm opacity-70">
-            {userName}
-          </div>
+          <div className="text-sm opacity-70">{userName}</div>
 
           <button
+            type="button"
             onClick={handleSignOut}
             className="rounded-lg bg-[#526b53] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
           >

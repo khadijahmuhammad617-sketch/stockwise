@@ -4,42 +4,130 @@
 import { useEffect, useState } from "react";
 import {
   collection,
+  doc,
+  getDoc,
   onSnapshot,
-  orderBy,
   query,
+  where,
 } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../../../lib/firebase";
 
 export default function AdminSalesReport() {
   const [sales, setSales] = useState([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const salesQuery = query(
-      collection(db, "sales"),
-      orderBy("createdAt", "desc")
-    );
+    let unsubscribeSales = null;
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      salesQuery,
-      (snapshot) => {
-        setSales(
-          snapshot.docs.map((item) => ({
-            id: item.id,
-            ...item.data(),
-          }))
-        );
-        setError("");
-      },
-      (err) => {
-        console.error(err);
-        setError(
-          "Could not load sales. Check your login and Firestore rules."
-        );
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubscribeSales) {
+        unsubscribeSales();
+        unsubscribeSales = null;
       }
-    );
 
-    return () => unsubscribe();
+      if (!user) {
+        setSales([]);
+        setError("Please sign in to view sales reports.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (cancelled) return;
+
+        if (!userSnap.exists()) {
+          setError("Your user profile could not be found.");
+          setSales([]);
+          setLoading(false);
+          return;
+        }
+
+        const userData = userSnap.data();
+
+        if (userData.active !== true) {
+          setError("Your account is not active.");
+          setSales([]);
+          setLoading(false);
+          return;
+        }
+
+        if (userData.role !== "admin") {
+          setError("Only an admin can view Sales Reports.");
+          setSales([]);
+          setLoading(false);
+          return;
+        }
+
+        if (!userData.businessId) {
+          setError("Your account has no business assigned.");
+          setSales([]);
+          setLoading(false);
+          return;
+        }
+
+        const salesQuery = query(
+          collection(db, "sales"),
+          where("businessId", "==", userData.businessId)
+        );
+
+        unsubscribeSales = onSnapshot(
+          salesQuery,
+          (snapshot) => {
+            if (cancelled) return;
+
+            const salesList = snapshot.docs.map((item) => ({
+              id: item.id,
+              ...item.data(),
+            }));
+
+            salesList.sort((a, b) => {
+              const dateA = a.createdAt?.toMillis?.() || 0;
+              const dateB = b.createdAt?.toMillis?.() || 0;
+              return dateB - dateA;
+            });
+
+            setSales(salesList);
+            setError("");
+            setLoading(false);
+          },
+          (err) => {
+            console.error("Sales report error:", err);
+            setError(
+              "Could not load sales. " + (err.message || "Check Firestore permissions.")
+            );
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error("Sales report setup error:", err);
+
+        if (!cancelled) {
+          setError(
+            "Could not load your business profile. " +
+              (err.message || "Please try again.")
+          );
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribeAuth();
+
+      if (unsubscribeSales) {
+        unsubscribeSales();
+      }
+    };
   }, []);
 
   const completedSales = sales.filter(
@@ -71,13 +159,17 @@ export default function AdminSalesReport() {
         </h1>
 
         <p className="mt-2 opacity-70">
-          Review recorded sales and revenue from StockWise.
+          Review recorded sales and revenue from your business.
         </p>
 
         {error && (
           <p className="mt-4 rounded-lg bg-red-100 p-3 text-red-700">
             {error}
           </p>
+        )}
+
+        {loading && (
+          <p className="mt-4">Loading sales reports...</p>
         )}
 
         <section className="mt-6 grid gap-4 md:grid-cols-3">
@@ -152,13 +244,13 @@ export default function AdminSalesReport() {
                 </tr>
               ))}
 
-              {sales.length === 0 && !error && (
+              {sales.length === 0 && !loading && !error && (
                 <tr>
                   <td
                     colSpan={6}
                     className="p-5 text-center opacity-70"
                   >
-                    No sales have been recorded yet.
+                    No sales have been recorded for this business yet.
                   </td>
                 </tr>
               )}
